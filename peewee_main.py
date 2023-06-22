@@ -4,8 +4,9 @@ from datetime import date, time, datetime, timedelta
 
 
 def create_tables():
-    tables = [UserData, ExpiredToken, Teacher, Student, Location, Room, Class, Slot, Session, Enrollment, CheckIn]
-    db.drop_tables(tables)
+    tables = DbModel.__subclasses__()
+    manual_tables = [UserData, ExpiredToken, Teacher, Student, Location, Room, Class, Slot, Session, Enrollment, CheckIn, TutorStudentAssociation]
+    # db.drop_tables(tables)
     db.create_tables(tables)
 
 
@@ -29,6 +30,10 @@ def main():
                                              RecoveryToken='RecoveryToken', RecoveryTokenTime=datetime.now())
         student2 = Student.create(FirstName='Igor', LastName='Goncharov', PhoneNumber='6463732444',
                                   AddressLine1='Add', City='JC', State='NJ', PostalCode='07310', Country='USA', UserData=student2_user_data)
+
+        TutorStudentAssociation.create(Teacher=teacher, Student=student1)
+        TutorStudentAssociation.create(Teacher=teacher, Student=student2, Status=AssociationStatus.Archived)
+
         # Location
         location = Location.create(Url='https://zoom.us', LocationType='T', Tutor=teacher)
         # Class
@@ -83,7 +88,15 @@ def main():
 
     # Output
     with db:
-        teacher = Teacher.get(Teacher.id == 1)
+        non_existing = Teacher.get_or_none(Teacher.FirstName == 'ig')
+        assert non_existing is None
+
+        teacher = Teacher[1]
+        assert teacher.Students.count()
+        for associated_student in teacher.Students.where(TutorStudentAssociation.Status == AssociationStatus.Active):
+            student = associated_student.Student
+            print(f'{student.id} {associated_student.Status} {student.FirstName}')
+
         enrolled_student1 = UserData.get(UserData.Login == 'student1@goncharov.dev').Student
         enrolled_student2 = UserData.get(UserData.Login == 'student2@goncharov.dev').Student
 
@@ -111,7 +124,7 @@ def main():
         print(f'All Count(CheckIn) = {all_checkins}')
         assert all_checkins == 4
 
-        present_count = CheckIn.select().join(Session).where(CheckIn.Session.Class == class_item)\
+        present_count = CheckIn.select().join(Session).where(CheckIn.Session.Class == class_item) \
             .where(CheckIn.Student == enrolled_student1).where(CheckIn.CheckInStatus == CheckInStatus.Present).count()
         print(f'{class_item.Name} Count(CheckIn)==Present - {present_count}')
         assert present_count == 2
@@ -121,7 +134,7 @@ def main():
         print(f'{class_item.Name} at {check_session_1.StartDateTime}+{check_session_1.Duration}m Count(CheckIn)==Present - {present_count_session1}')
         assert present_count_session1 == 1
 
-        absent_count = CheckIn.select().join(Session).where(CheckIn.Session.Class == class_item)\
+        absent_count = CheckIn.select().join(Session).where(CheckIn.Session.Class == class_item) \
             .where(CheckIn.Student == enrolled_student2).where(CheckIn.CheckInStatus == CheckInStatus.Absent).count()
         print(f'{class_item.Name} Count(CheckIn)==Absent - {absent_count}')
         assert absent_count == 2

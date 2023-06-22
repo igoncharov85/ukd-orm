@@ -1,3 +1,4 @@
+from datetime import datetime
 from peewee import *
 import peewee_plus
 
@@ -7,12 +8,12 @@ db = SqliteDatabase(':memory:')
 # db = SqliteDatabase('file.db')
 
 
-class BaseModel(Model):
+class DbModel(Model):
     class Meta:
         database = db
 
 
-class UserData(BaseModel):
+class UserData(DbModel):
     Login = CharField()
     PasswordHash = CharField()
     PasswordSalt = CharField()
@@ -24,13 +25,13 @@ class UserData(BaseModel):
     RecoveryTokenTime = DateTimeField()
 
 
-class ExpiredToken(BaseModel):
+class ExpiredToken(DbModel):
     Token = CharField()
     ExpiresAt = DateTimeField()
     UserData = ForeignKeyField(UserData)
 
 
-class Teacher(BaseModel):
+class Teacher(DbModel):
     FirstName = CharField()
     LastName = CharField()
     PhoneNumber = CharField()
@@ -49,7 +50,7 @@ class Teacher(BaseModel):
     #UserData: Mapped[UserData] = relationship(UserData, uselist=False)
 
 
-class Student(BaseModel):
+class Student(DbModel):
     FirstName = CharField()
     LastName = CharField()
     PhoneNumber = CharField()
@@ -64,7 +65,14 @@ class Student(BaseModel):
     # Enrollments = relationship('Enrollment', back_populates='Student')
 
 
-class Location(BaseModel):
+class TutorStudentAssociation(DbModel):
+    Teacher = ForeignKeyField(Teacher, backref='Students')
+    Student = ForeignKeyField(Student)
+    CreateDateTime = DateTimeField(default=datetime.now())
+    Status = peewee_plus.EnumField(AssociationStatus, default=AssociationStatus.Active)
+
+
+class Location(DbModel):
     Url = CharField()
     LocationType = CharField()
     AddressLine = CharField(null=True)
@@ -79,14 +87,14 @@ class Location(BaseModel):
     # Rooms: Mapped[List['Room']] = relationship('Room')
 
 
-class Room(BaseModel):
+class Room(DbModel):
     Name = CharField()
     Capacity = IntegerField()
 
     Location = ForeignKeyField(Location, backref='Rooms')
 
 
-class Class(BaseModel):
+class Class(DbModel):
     Name = CharField()
     Status = CharField()
     ClassType = CharField(null=True)
@@ -104,7 +112,7 @@ class Class(BaseModel):
     #Tutor = relationship(Teacher, secondary=tutor_classes, back_populates='TutorClasses', uselist=False)
 
 
-class Slot(BaseModel):
+class Slot(DbModel):
     uid = UUIDField(primary_key=True)
     DayOfWeek = IntegerField()
     StartTime = TimeField()
@@ -113,7 +121,7 @@ class Slot(BaseModel):
     Class = ForeignKeyField(Class, backref='Slots')
 
 
-class Session(BaseModel):
+class Session(DbModel):
     StartDateTime = DateTimeField()
     Duration = IntegerField()
 
@@ -124,7 +132,7 @@ class Session(BaseModel):
     SchoolTeacher = ForeignKeyField(Teacher, null=True)
 
 
-class Enrollment(BaseModel):
+class Enrollment(DbModel):
     StartDate = DateTimeField()
     EndDate = DateTimeField()
     Notes = CharField()
@@ -136,7 +144,7 @@ class Enrollment(BaseModel):
         primary_key = CompositeKey('Student', 'Class')
 
 
-class CheckIn(BaseModel):
+class CheckIn(DbModel):
     CheckInStatus = peewee_plus.EnumField(CheckInStatus)
     TimeStamp = DateTimeField()
 
