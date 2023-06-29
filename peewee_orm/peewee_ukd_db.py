@@ -15,14 +15,14 @@ class DbModel(Model):
 
 class UserData(DbModel):
     Login = CharField()
-    PasswordHash = CharField()
-    PasswordSalt = CharField()
-    HashAlgo = CharField()
-    ConfirmationToken = CharField()
-    ConfirmationTokenTime = DateTimeField()
+    PasswordHash = CharField(null=True)
+    PasswordSalt = CharField(null=True)
+    HashAlgo = CharField(null=True)
+    ConfirmationToken = CharField(null=True)
+    ConfirmationTokenTime = DateTimeField(null=True)
     EmailValidationStatus = BooleanField()
-    RecoveryToken = CharField()
-    RecoveryTokenTime = DateTimeField()
+    RecoveryToken = CharField(null=True)
+    RecoveryTokenTime = DateTimeField(null=True)
 
 
 class ExpiredToken(DbModel):
@@ -43,26 +43,18 @@ class Teacher(DbModel):
 
     UserData = ForeignKeyField(UserData, backref='Teacher', unique=True)
 
-    # AssociatedStudents = relationship('Student', secondary=tutor_associated_students)
-    # TutorLocations = relationship('Location', secondary=tutor_locations)
-    # TutorClasses = relationship('Class', secondary=tutor_classes, back_populates='Tutor')
-
-    #UserData: Mapped[UserData] = relationship(UserData, uselist=False)
-
 
 class Student(DbModel):
     FirstName = CharField()
     LastName = CharField()
-    PhoneNumber = CharField()
-    AddressLine1 = CharField()
-    City = CharField()
-    State = CharField()
-    PostalCode = CharField()
-    Country = CharField()
+    PhoneNumber = CharField(null=True)
+    AddressLine1 = CharField(null=True)
+    City = CharField(null=True)
+    State = CharField(null=True)
+    PostalCode = CharField(null=True)
+    Country = CharField(null=True)
 
     UserData = ForeignKeyField(UserData, backref='Student', unique=True)
-
-    # Enrollments = relationship('Enrollment', back_populates='Student')
 
 
 class TutorStudentAssociation(DbModel):
@@ -71,10 +63,13 @@ class TutorStudentAssociation(DbModel):
     CreateDateTime = DateTimeField(default=datetime.now())
     Status = peewee_plus.EnumField(AssociationStatus, default=AssociationStatus.Active)
 
+    class Meta:
+        primary_key = CompositeKey('Teacher', 'Student')
+
 
 class Location(DbModel):
-    Url = CharField()
-    LocationType = CharField()
+    Url = CharField(null=True)
+    LocationType = peewee_plus.EnumField(LocationType)
     AddressLine = CharField(null=True)
     City = CharField(null=True)
     State = CharField(null=True)
@@ -82,9 +77,6 @@ class Location(DbModel):
     Country = CharField(null=True)
 
     Tutor = ForeignKeyField(Teacher, backref='Locations', null=True)
-    # School: Mapped['School'] = relationship('School', secondary=school_locations, back_populates='Locations', uselist=False)
-
-    # Rooms: Mapped[List['Room']] = relationship('Room')
 
 
 class Room(DbModel):
@@ -96,10 +88,10 @@ class Room(DbModel):
 
 class Class(DbModel):
     Name = CharField()
-    Status = CharField()
+    Status = peewee_plus.EnumField(ClassStatus, default=ClassStatus.Scheduled)
     ClassType = CharField(null=True)
     StartDate = DateField()
-    EndScheduleType = CharField()
+    EndScheduleType = peewee_plus.EnumField(ScheduleType)
     EndDate = DateField(null=False)
     EndNumber = IntegerField(null=True)
     MakeupRequired = BooleanField()
@@ -107,13 +99,11 @@ class Class(DbModel):
 
     Location = ForeignKeyField(Location, null=True)
 
-    #Enrollments = relationship('Enrollment', back_populates='Class')
-
-    #Tutor = relationship(Teacher, secondary=tutor_classes, back_populates='TutorClasses', uselist=False)
+    Tutor = ForeignKeyField(Teacher, backref='Classes')
 
 
 class Slot(DbModel):
-    uid = UUIDField(primary_key=True)
+    SlotUid = UUIDField(primary_key=True)
     DayOfWeek = IntegerField()
     StartTime = TimeField()
     Duration = IntegerField()
@@ -146,7 +136,61 @@ class Enrollment(DbModel):
 
 class CheckIn(DbModel):
     CheckInStatus = peewee_plus.EnumField(CheckInStatus)
-    TimeStamp = DateTimeField()
+    TimeStamp = DateTimeField(default=datetime.now())
 
     Student = ForeignKeyField(Student, backref='CheckIns')
     Session = ForeignKeyField(Session, backref='CheckIns')
+
+
+# School
+
+class School(db.Model):
+    BusinessName = CharField()
+    PhoneNumber = CharField()
+    AddressLine1 = CharField()
+    City = CharField()
+    State = CharField()
+    PostalCode = CharField()
+    Country = CharField()
+
+    Owner = ForeignKeyField(Teacher)
+
+
+class SchoolTeacherAssociation(db.Model):
+    FirstName = CharField()
+    LastName = CharField()
+    Email = CharField()
+    PhoneNumber = CharField()
+
+    Permission = peewee_plus.EnumField(SchoolPermissionType)
+    Notes = CharField(null=True)
+
+    School = ForeignKeyField(School)
+    Teacher = ForeignKeyField(Teacher)
+
+    class Meta:
+        primary_key = CompositeKey('School', 'Teacher')
+
+
+class SchoolStudentAssociation(DbModel):
+    School = ForeignKeyField(School, backref='Students')
+    Student = ForeignKeyField(Student)
+
+    CreateDateTime = DateTimeField(default=datetime.now())
+    Status = peewee_plus.EnumField(AssociationStatus, default=AssociationStatus.Active)
+
+    class Meta:
+        primary_key = CompositeKey('School', 'Student')
+
+
+class SchoolClass(db.Model):
+    School = ForeignKeyField(School, backref='Classes')
+    Class = ForeignKeyField(Class)
+
+    Teacher = ForeignKeyField(Teacher, null=True)
+
+    class Meta:
+        primary_key = CompositeKey('School', 'Class')
+
+
+model_tables = DbModel.__subclasses__()

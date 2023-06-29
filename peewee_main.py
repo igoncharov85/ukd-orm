@@ -4,10 +4,7 @@ from datetime import date, time, datetime, timedelta
 
 
 def create_tables():
-    tables = DbModel.__subclasses__()
-    manual_tables = [UserData, ExpiredToken, Teacher, Student, Location, Room, Class, Slot, Session, Enrollment, CheckIn, TutorStudentAssociation]
-    # db.drop_tables(tables)
-    db.create_tables(tables)
+    db.create_tables(model_tables)
 
 
 def main():
@@ -35,15 +32,15 @@ def main():
         TutorStudentAssociation.create(Teacher=teacher, Student=student2, Status=AssociationStatus.Archived)
 
         # Location
-        location = Location.create(Url='https://zoom.us', LocationType='T', Tutor=teacher)
+        location = Location.create(Url='https://zoom.us', LocationType=LocationType.Online, Tutor=teacher)
         # Class
-        class_item = Class.create(Name='Music', Status='Active', ClassType='ClassType',
-                                  StartDate=date(2023, 7, 1), EndScheduleType='Fixed',
-                                  EndDate=date(2023, 7, 28), MakeupRequired=True, TrackPrepayment=True, Location=location)
+        class_item = Class.create(Name='Music', Status=ClassStatus.Scheduled, ClassType='ClassType',
+                                  StartDate=date(2023, 7, 1), EndScheduleType=ScheduleType.FixedWeekNumber,
+                                  EndDate=date(2023, 7, 28), MakeupRequired=True, TrackPrepayment=True, Location=location, Tutor=teacher)
         # Slots count=3
-        slot1 = Slot.create(uid=uuid.uuid4(), DayOfWeek=1, StartTime=time(16, 0), Duration=60, Class=class_item)
-        slot2 = Slot.create(uid=uuid.uuid4(), DayOfWeek=3, StartTime=time(17, 0), Duration=60, Class=class_item)
-        slot3 = Slot.create(uid=uuid.uuid4(), DayOfWeek=5, StartTime=time(18, 0), Duration=60, Class=class_item)
+        slot1 = Slot.create(SlotUid=uuid.uuid4(), DayOfWeek=1, StartTime=time(16, 0), Duration=60, Class=class_item)
+        slot2 = Slot.create(SlotUid=uuid.uuid4(), DayOfWeek=3, StartTime=time(17, 0), Duration=60, Class=class_item)
+        slot3 = Slot.create(SlotUid=uuid.uuid4(), DayOfWeek=5, StartTime=time(18, 0), Duration=60, Class=class_item)
         # Sessions
         teacher = date.today()
         t1 = teacher + timedelta(days=7)
@@ -92,6 +89,7 @@ def main():
         assert non_existing is None
 
         teacher = Teacher[1]
+        #teacher1 = Teacher[2]
         assert teacher.Students.count()
         for associated_student in teacher.Students.where(TutorStudentAssociation.Status == AssociationStatus.Active):
             student = associated_student.Student
@@ -111,7 +109,7 @@ def main():
         print(f'Count(Slots) = {slots.count()}')
         assert slots.count() == 3
         for slot in slots:
-            print(f'{slot.uid} - {slot.StartTime}')
+            print(f'{slot.SlotUid} - {slot.StartTime}')
 
         sessions = class_item.Sessions
         print(f'Count(Session) = {sessions.count()}')
