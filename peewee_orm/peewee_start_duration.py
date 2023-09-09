@@ -4,8 +4,7 @@ from peewee import *
 from playhouse.db_url import connect
 from playhouse.hybrid import hybrid_property
 
-#db = SqliteDatabase(':memory:')
-db = connect('mysql://')
+db = SqliteDatabase(':memory:')
 print(peewee.__version__)
 
 
@@ -21,8 +20,7 @@ class Session(Model):
 
     @EndDateTime.expression
     def EndDateTime(cls):
-        end = SQL(f'DATE_ADD({cls.StartDateTime}, INTERVAL {cls.Duration} MINUTE)', [cls.StartDateTime, cls.Duration])
-        return end
+        return cls.StartDateTime.to_timestamp() + cls.Duration
 
     class Meta:
         database = db
@@ -32,18 +30,26 @@ db.create_tables([Session])
 
 
 def main():
-    now = datetime.now()
-    in_an_hour = now + timedelta(hours=1)
-    with db.atomic():
-        Session.create(StartDateTime=now, Duration=10)
-        Session.create(StartDateTime=now, Duration=10)
-        Session.create(StartDateTime=in_an_hour, Duration=10)
-    assert len(Session) == 3
-    for session in Session:
-        print(f'{session.SessionId}={session.Duration} - {session.StartDateTime} - {session.EndDateTime}')
+    import pytz
+    UTC_TIMEZONE = pytz.timezone('UTC')
 
-    for session in Session.select().where(Session.EndDateTime <= in_an_hour):
-        print(f'{session.SessionId} - {session.StartDateTime} - {session.EndDateTime}')
+    start1 = datetime(2023, 9, 1, 5, 0)
+    start2 = datetime(2023, 9, 1, 9, 0)
+    if not len(Session):
+        with db.atomic():
+            Session.create(StartDateTime=start1, Duration=60)
+            Session.create(StartDateTime=start1, Duration=60)
+            Session.create(StartDateTime=start2, Duration=60)
+    assert len(Session) == 3
+
+    print('Sessions:')
+    for session in Session:
+        print(f'{session.SessionId}: Duration={session.Duration}, StartDateTime={session.StartDateTime} - EndDateTime={session.EndDateTime}')
+
+    print(f'Comparing with {start2}')
+    start2 = start2.replace(tzinfo=UTC_TIMEZONE)
+    assert Session.select().where(Session.EndDateTime <= start2.timestamp()).order_by(Session.EndDateTime).count() == 2
+    assert Session.select().where(Session.EndDateTime >= start2.timestamp()).order_by(Session.EndDateTime).count() == 1
 
 
 if __name__ == '__main__':
